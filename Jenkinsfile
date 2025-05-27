@@ -4,7 +4,7 @@ pipeline {
 
     environment {
         // Define any environment variables needed for your deployment
-        // Example: VM_NAME_PREFIX = 'my-html-app'
+        VM_NAME_PREFIX = 'my-html-app'
         // Example: DEPLOY_SCRIPT_PATH = "/home/YOUR_USERNAME_ON_CONTROLLER/deploy-admin.sh"
         // Ensure YOUR_USERNAME_ON_CONTROLLER is the user on your Jenkins host (your laptop)
         // that owns and can execute deploy-admin.sh
