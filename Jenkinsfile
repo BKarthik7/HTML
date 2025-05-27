@@ -5,8 +5,8 @@ pipeline {
     environment {
         // Define any environment variables needed for your deployment
         VM_NAME_PREFIX = 'my-html-app'
-        // Example: DEPLOY_SCRIPT_PATH = "/home/YOUR_USERNAME_ON_CONTROLLER/deploy-admin.sh"
-        // Ensure YOUR_USERNAME_ON_CONTROLLER is the user on your Jenkins host (your laptop)
+        // Example: DEPLOY_SCRIPT_PATH = "/home/aagnik/deploy-admin.sh"
+        // Ensure aagnik is the user on your Jenkins host (your laptop)
         // that owns and can execute deploy-admin.sh
     }
 
@@ -44,7 +44,7 @@ pipeline {
 
                 // The deploy-admin.sh script expects an APP_NAME
                 // We can use the Jenkins build number to make it unique or a fixed name for now
-                // sh "/home/YOUR_USERNAME_ON_CONTROLLER/deploy-admin.sh my-html-app-${BUILD_NUMBER}"
+                // sh "/home/aagnik/deploy-admin.sh my-html-app-${BUILD_NUMBER}"
                 // OR, if deploy-admin.sh is in the workspace (not recommended for shared scripts)
                 // sh "./deploy-admin.sh my-html-app-${BUILD_NUMBER}"
             }
