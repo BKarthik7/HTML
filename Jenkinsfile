@@ -1,66 +1,94 @@
 // Jenkinsfile
 pipeline {
-    agent any // Runs on any available Jenkins agent/executor
+    agent any
 
     environment {
-        // Define any environment variables needed for your deployment
-        VM_NAME_PREFIX = 'my-html-app'
-        // Example: DEPLOY_SCRIPT_PATH = "/home/aagnik/deploy-admin.sh"
-        // Ensure aagnik is the user on your Jenkins host (your laptop)
-        // that owns and can execute deploy-admin.sh
+        // Path to your deploy-admin.sh script on the Jenkins controller node
+        DEPLOY_ADMIN_SCRIPT = "/home/aagnik/deploy-admin.sh"
+        // Path to your new Ansible playbook for deploying the web app
+        DEPLOY_WEBAPP_PLAYBOOK = "/home/aagnik/ansible/deploy-webapp.yml"
+        // VM name will be dynamic
+        VM_APP_NAME = "my-html-app" // Base name for the app
     }
 
     stages {
         stage('Checkout Code') {
             steps {
                 echo 'Checking out code from GitHub...'
-                checkout scm // Checks out the code from the configured SCM (your GitHub repo)
+                checkout scm
             }
         }
 
-        stage('Build (Placeholder)') {
-            // For a simple HTML+CSS+JS app, a "build" might just be linting or archiving.
-            // If you had a framework that needed compiling, you'd do it here.
+        stage('Provision OpenStack VM') {
             steps {
-                echo 'Building the application (if applicable)...'
-                // Example: Archive the workspace for deployment
-                // archiveArtifacts artifacts: '**/*', followSymlinks: false
+                script {
+                    // Construct a unique VM name for this build
+                    env.VM_NAME_FOR_THIS_BUILD = "${VM_APP_NAME}-${BUILD_NUMBER}"
+                    echo "Provisioning VM: ${env.VM_NAME_FOR_THIS_BUILD}"
+                    // Execute your existing script to create the VM
+                    sh "${DEPLOY_ADMIN_SCRIPT} ${env.VM_NAME_FOR_THIS_BUILD}"
+                }
             }
         }
 
-        stage('Deploy to OpenStack VM') {
+        stage('Get VM IP Address') {
             steps {
-                echo 'Deploying to OpenStack VM...'
-                // This assumes your deploy-admin.sh script handles VM creation
-                // and you'll later enhance it or add another script/Ansible playbook
-                // to copy the HTML/CSS/JS files to the VM.
+                script {
+                    echo "Attempting to get IP for VM: ${env.VM_NAME_FOR_THIS_BUILD}"
+                    // This requires OpenStack CLI to be configured for the Jenkins user
+                    // and assumes the 'test' network is where the IP will be.
+                    // The jq parsing might need adjustment based on your 'openstack server show' output.
+                    // Ensure OS_* env vars are available if not using the auth block in the playbook.
+                    // Sourcing the RC file here might be needed for the jenkins user
+                    def rawIpOutput = sh(script: """
+                        source /var/snap/microstack/common/etc/microstack.rc
+                        openstack server show ${env.VM_NAME_FOR_THIS_BUILD} -f json -c addresses
+                    """, returnStdout: true).trim()
+                    
+                    echo "Raw IP Output: ${rawIpOutput}"
+                    // This parsing is an example and highly dependent on your network setup and OpenStack version
+                    // It tries to find the first IPv4 address on the 'test' network.
+                    def addressesJson = readJSON text: rawIpOutput
+                    def vmIpAddress = ""
+                    if (addressesJson.addresses && addressesJson.addresses.test) {
+                        for (addrInfo in addressesJson.addresses.test) {
+                            if (addrInfo.version == 4) {
+                                vmIpAddress = addrInfo.addr
+                                break
+                            }
+                        }
+                    }
 
-                // For now, let's just trigger the VM creation.
-                // Make sure your Jenkins user has permission to execute this script
-                // and that the script can source the OpenStack RC file.
-                // You might need to configure sudo access for the jenkins user
-                // if microstack.rc or ansible-playbook require it, or ensure
-                // the jenkins user has all necessary environment variables.
-
-                // The deploy-admin.sh script expects an APP_NAME
-                // We can use the Jenkins build number to make it unique or a fixed name for now
-                // sh "/home/aagnik/deploy-admin.sh my-html-app-${BUILD_NUMBER}"
-                // OR, if deploy-admin.sh is in the workspace (not recommended for shared scripts)
-                // sh "./deploy-admin.sh my-html-app-${BUILD_NUMBER}"
+                    if (vmIpAddress) {
+                        env.TARGET_VM_IP = vmIpAddress
+                        echo "Found VM IP: ${env.TARGET_VM_IP}"
+                    } else {
+                        error "Could not determine VM IP address for ${env.VM_NAME_FOR_THIS_BUILD}"
+                    }
+                }
             }
         }
 
-        // You would add more stages later, e.g., to copy files to the VM:
-        // stage('Transfer Files to VM') {
-        //     steps {
-        //         echo 'Transferring application files...'
-        //         // Use Ansible, scp, or rsync here
-        //         // You'd need the IP of the VM created in the previous stage.
-        //         // This requires more advanced Jenkinsfile scripting to pass data between stages.
-        //     }
-        // }
+        stage('Deploy Application Files to VM') {
+            // Only run if we got an IP
+            when { expression { env.TARGET_VM_IP != null && env.TARGET_VM_IP != "" } }
+            steps {
+                echo "Deploying application to VM: ${env.TARGET_VM_IP}"
+                
+                ansiblePlaybook(
+                    playbook: "${DEPLOY_WEBAPP_PLAYBOOK}",
+                    inventory: "${env.TARGET_VM_IP},", // Note: trailing comma for single-host inventory
+                    extraVars: [
+                        target_vm_ip: env.TARGET_VM_IP,
+                        jenkins_workspace: env.WORKSPACE,
+                        ansible_user: 'ubuntu',
+                        ansible_ssh_private_key_file: "${System.getProperty('user.home')}/.ssh/id_rsa",
+                        ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+                    ]
+                )
+            }
+        }
     }
-
     post {
         always {
             echo 'Pipeline finished.'
