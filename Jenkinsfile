@@ -41,7 +41,6 @@ pipeline {
                     // Ensure OS_* env vars are available if not using the auth block in the playbook.
                     // Sourcing the RC file here might be needed for the jenkins user
 
-                    ---------------------------
                     def rawIpOutput = sh(script: """
                         . /var/snap/microstack/common/etc/microstack.rc
                         openstack server show ${env.VM_NAME_FOR_THIS_BUILD} -f json -c addresses
