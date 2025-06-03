@@ -35,38 +35,55 @@ pipeline {
             steps {
                 script {
                     echo "Attempting to get IP for VM: ${env.VM_NAME_FOR_THIS_BUILD}"
-                    // This requires OpenStack CLI to be configured for the Jenkins user
-                    // and assumes the 'test' network is where the IP will be.
-                    // The jq parsing might need adjustment based on your 'openstack server show' output.
-                    // Ensure OS_* env vars are available if not using the auth block in the playbook.
-                    // Sourcing the RC file here might be needed for the jenkins user
+                    // // This requires OpenStack CLI to be configured for the Jenkins user
+                    // // and assumes the 'test' network is where the IP will be.
+                    // // The jq parsing might need adjustment based on your 'openstack server show' output.
+                    // // Ensure OS_* env vars are available if not using the auth block in the playbook.
+                    // // Sourcing the RC file here might be needed for the jenkins user
 
-                    def rawIpOutput = sh(script: """
-                        . /var/snap/microstack/common/etc/microstack.rc
-                        openstack server show ${env.VM_NAME_FOR_THIS_BUILD} -f json -c addresses
+                    // def rawIpOutput = sh(script: """
+                    //     . /var/snap/microstack/common/etc/microstack.rc
+                    //     openstack server show ${env.VM_NAME_FOR_THIS_BUILD} -f json -c addresses
+                    // """, returnStdout: true).trim()
+                    
+                    // echo "Raw IP Output: ${rawIpOutput}"
+                    // // This parsing is an example and highly dependent on your network setup and OpenStack version
+                    // // It tries to find the first IPv4 address on the 'test' network.
+                    // def addressesJson = readJSON text: rawIpOutput
+                    // echo "addressesJson: ${addressesJson}"
+                    // echo "addresses: ${addressesJson.addresses.test}"
+                    // def vmIpAddress = ""
+                    // if (addressesJson.addresses && addressesJson.addresses.test) {
+                    //     for (addrInfo in addressesJson.addresses.test) {
+                    //         if (addrInfo.version == 4) {
+                    //             vmIpAddress = addrInfo.addr
+                    //             break
+                    //         }
+                    //     }
+                    // }
+
+                    // if (vmIpAddress) {
+                    //     env.TARGET_VM_IP = vmIpAddress
+                    //     echo "Found VM IP: ${env.TARGET_VM_IP}"
+                    // } else {
+                    //     error "Could not determine VM IP address for ${env.VM_NAME_FOR_THIS_BUILD}"
+                    // }
+
+
+
+                    def rawAddresses = sh(script: """
+                      . /var/snap/microstack/common/etc/microstack.rc
+                      openstack server show ${env.VM_NAME_FOR_THIS_BUILD} -f json -c addresses | jq -r '.addresses'
                     """, returnStdout: true).trim()
                     
-                    echo "Raw IP Output: ${rawIpOutput}"
-                    // This parsing is an example and highly dependent on your network setup and OpenStack version
-                    // It tries to find the first IPv4 address on the 'test' network.
-                    def addressesJson = readJSON text: rawIpOutput
-                    echo "addressesJson: ${addressesJson}"
-                    echo "addresses: ${addressesJson.addresses.test}"
-                    def vmIpAddress = ""
-                    if (addressesJson.addresses && addressesJson.addresses.test) {
-                        for (addrInfo in addressesJson.addresses.test) {
-                            if (addrInfo.version == 4) {
-                                vmIpAddress = addrInfo.addr
-                                break
-                            }
-                        }
-                    }
-
-                    if (vmIpAddress) {
-                        env.TARGET_VM_IP = vmIpAddress
-                        echo "Found VM IP: ${env.TARGET_VM_IP}"
+                    def ips = rawAddresses.replaceFirst('test=', '').split(',').collect { it.trim() }
+                    
+                    if (ips.size() >= 2) {
+                        def secondIp = ips[1]
+                        env.TARGET_VM_IP = secondIp
+                        echo "Found second VM IP: ${env.TARGET_VM_IP}"
                     } else {
-                        error "Could not determine VM IP address for ${env.VM_NAME_FOR_THIS_BUILD}"
+                        error "Second IP address not found for ${env.VM_NAME_FOR_THIS_BUILD}"
                     }
                 }
             }
