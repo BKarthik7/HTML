@@ -94,6 +94,7 @@ pipeline {
             when { expression { env.TARGET_VM_IP != null && env.TARGET_VM_IP != "" } }
             steps {
                 echo "Deploying application to VM: ${env.TARGET_VM_IP}"
+                echo "worksapce: ${env.WORKSPACE}"
                 ansiblePlaybook(
                     playbook: "${DEPLOY_WEBAPP_PLAYBOOK}",
                     inventory: "${env.TARGET_VM_IP},", // Note: trailing comma for single-host inventory
