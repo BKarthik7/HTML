@@ -79,7 +79,7 @@ pipeline {
                     def ips = rawAddresses.replaceFirst('test=', '').split(',').collect { it.trim() }
                     
                     if (ips.size() >= 2) {
-                        def secondIp = ips[1].replaceAll('"', '').replaceAll('\n','').trim()
+                        def secondIp = ips[1].trim().replaceAll('[^0-9\\.]+', '')
                         env.TARGET_VM_IP = secondIp
                         echo "Found second VM IP: ${env.TARGET_VM_IP}"
                     } else {
@@ -94,7 +94,6 @@ pipeline {
             when { expression { env.TARGET_VM_IP != null && env.TARGET_VM_IP != "" } }
             steps {
                 echo "Deploying application to VM: ${env.TARGET_VM_IP}"
-                
                 ansiblePlaybook(
                     playbook: "${DEPLOY_WEBAPP_PLAYBOOK}",
                     inventory: "${env.TARGET_VM_IP},", // Note: trailing comma for single-host inventory
