@@ -50,6 +50,8 @@ pipeline {
                     // This parsing is an example and highly dependent on your network setup and OpenStack version
                     // It tries to find the first IPv4 address on the 'test' network.
                     def addressesJson = readJSON text: rawIpOutput
+                    echo "addressesJson: ${addressesJson}"
+                    echo "addresses: ${addressesJson.addresses.test}"
                     def vmIpAddress = ""
                     if (addressesJson.addresses && addressesJson.addresses.test) {
                         for (addrInfo in addressesJson.addresses.test) {
