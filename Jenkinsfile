@@ -79,7 +79,7 @@ pipeline {
                     def ips = rawAddresses.replaceFirst('test=', '').split(',').collect { it.trim() }
                     
                     if (ips.size() >= 2) {
-                        def secondIp = ips[1].trim().replaceAll('"', '')
+                        def secondIp = ips[1].replaceAll('"', '').replaceAll('\n','')
                         env.TARGET_VM_IP = secondIp
                         echo "Found second VM IP: ${env.TARGET_VM_IP}"
                     } else {
