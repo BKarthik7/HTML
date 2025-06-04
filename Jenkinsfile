@@ -90,14 +90,44 @@ pipeline {
         }
 
         stage('Deploy Application Files to VM') {
-            // Only run if we got an IP
             when { expression { env.TARGET_VM_IP != null && env.TARGET_VM_IP != "" } }
             steps {
                 echo "Deploying application to VM: ${env.TARGET_VM_IP}"
-                echo "worksapce: ${env.WORKSPACE}"
+                echo "workspace: ${env.WORKSPACE}"
+        
+                script {
+                    echo "Waiting for SSH to become available on ${env.TARGET_VM_IP}..."
+        
+                    def maxRetries = 10
+                    def delaySeconds = 10
+                    def sshReady = false
+        
+                    for (int i = 1; i <= maxRetries; i++) {
+                        def result = sh(
+                            script: """
+                                ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o UserKnownHostsFile=/dev/null \
+                                    -i /var/lib/jenkins/.ssh/id_rsa ubuntu@${env.TARGET_VM_IP} 'echo SSH is up' || exit 1
+                            """,
+                            returnStatus: true
+                        )
+                        if (result == 0) {
+                            echo "✅ SSH is ready!"
+                            sshReady = true
+                            break
+                        } else {
+                            echo "❌ SSH not ready yet. Attempt $i/$maxRetries. Retrying in ${delaySeconds}s..."
+                            sleep(time: delaySeconds, unit: 'SECONDS')
+                        }
+                    }
+        
+                    if (!sshReady) {
+                        error "❌ SSH never became ready after ${maxRetries} retries"
+                    }
+                }
+        
                 ansiblePlaybook(
                     playbook: "${DEPLOY_WEBAPP_PLAYBOOK}",
-                    inventory: "${env.TARGET_VM_IP},", // Note: trailing comma for single-host inventory
+                    inventory: "${env.TARGET_VM_IP},", // trailing comma for single-host inventory
                     extraVars: [
                         target_vm_ip: env.TARGET_VM_IP,
                         jenkins_workspace: env.WORKSPACE,
