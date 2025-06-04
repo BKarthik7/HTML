@@ -102,7 +102,7 @@ pipeline {
                         target_vm_ip: env.TARGET_VM_IP,
                         jenkins_workspace: env.WORKSPACE,
                         ansible_user: 'ubuntu',
-                        ansible_ssh_private_key_file: "/home/aagnik/.ssh/id_rsa",
+                        ansible_ssh_private_key_file: "/var/lib/jenkins/.ssh/id_rsa",
                         ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
                     ]
                 )
