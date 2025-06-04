@@ -9,8 +9,6 @@ pipeline {
         DEPLOY_WEBAPP_PLAYBOOK = "/home/aagnik/ansible/deploy-webapp.yml"
         // VM name will be dynamic
         VM_APP_NAME = "my-html-app" // Base name for the app
-        // Add your email over here
-        USER_EMAIL = "aagnikg2003@gmail.com"
     }
 
     stages {
@@ -103,32 +101,6 @@ pipeline {
                         ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
                     ]
                 )
-            }
-        }
-
-        stage('Send Email Notification') {
-            steps {
-                script {
-                    // def gitEmail = sh(script: "git log -1 --pretty=format:'%ae'", returnStdout: true).trim()
-                    // echo "Sending email to: ${gitEmail}"
-
-                    echo "Sending email to: ${env.USER_EMAIL}"
-
-                    mail(
-                        to: "${env.USER_EMAIL}",
-                        subject: "Your VM is Ready!",
-                        body: """
-Hello,
-
-Your VM has been successfully provisioned by Jenkins.
-
-You can access it at: ${env.TARGET_VM_IP}
-
-Regards,
-Jenkins Pipeline
-"""
-                    )
-                }
             }
         }
     }
