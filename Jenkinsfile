@@ -9,6 +9,8 @@ pipeline {
         DEPLOY_WEBAPP_PLAYBOOK = "/home/aagnik/ansible/deploy-webapp.yml"
         // VM name will be dynamic
         VM_APP_NAME = "my-html-app" // Base name for the app
+        // Add your email over here
+        USER_EMAIL = "aagnikg2003@gmail.com"
     }
 
     stages {
@@ -35,41 +37,6 @@ pipeline {
             steps {
                 script {
                     echo "Attempting to get IP for VM: ${env.VM_NAME_FOR_THIS_BUILD}"
-                    // // This requires OpenStack CLI to be configured for the Jenkins user
-                    // // and assumes the 'test' network is where the IP will be.
-                    // // The jq parsing might need adjustment based on your 'openstack server show' output.
-                    // // Ensure OS_* env vars are available if not using the auth block in the playbook.
-                    // // Sourcing the RC file here might be needed for the jenkins user
-
-                    // def rawIpOutput = sh(script: """
-                    //     . /var/snap/microstack/common/etc/microstack.rc
-                    //     openstack server show ${env.VM_NAME_FOR_THIS_BUILD} -f json -c addresses
-                    // """, returnStdout: true).trim()
-                    
-                    // echo "Raw IP Output: ${rawIpOutput}"
-                    // // This parsing is an example and highly dependent on your network setup and OpenStack version
-                    // // It tries to find the first IPv4 address on the 'test' network.
-                    // def addressesJson = readJSON text: rawIpOutput
-                    // echo "addressesJson: ${addressesJson}"
-                    // echo "addresses: ${addressesJson.addresses.test}"
-                    // def vmIpAddress = ""
-                    // if (addressesJson.addresses && addressesJson.addresses.test) {
-                    //     for (addrInfo in addressesJson.addresses.test) {
-                    //         if (addrInfo.version == 4) {
-                    //             vmIpAddress = addrInfo.addr
-                    //             break
-                    //         }
-                    //     }
-                    // }
-
-                    // if (vmIpAddress) {
-                    //     env.TARGET_VM_IP = vmIpAddress
-                    //     echo "Found VM IP: ${env.TARGET_VM_IP}"
-                    // } else {
-                    //     error "Could not determine VM IP address for ${env.VM_NAME_FOR_THIS_BUILD}"
-                    // }
-
-
 
                     def rawAddresses = sh(script: """
                       . /var/snap/microstack/common/etc/microstack.rc
@@ -136,6 +103,32 @@ pipeline {
                         ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
                     ]
                 )
+            }
+        }
+
+        stage('Send Email Notification') {
+            steps {
+                script {
+                    // def gitEmail = sh(script: "git log -1 --pretty=format:'%ae'", returnStdout: true).trim()
+                    // echo "Sending email to: ${gitEmail}"
+
+                    echo "Sending email to: ${env.USER_EMAIL}"
+
+                    mail(
+                        to: "${env.USER_EMAIL}",
+                        subject: "Your VM is Ready!",
+                        body: """
+Hello,
+
+Your VM has been successfully provisioned by Jenkins.
+
+You can access it at: ${env.TARGET_VM_IP}
+
+Regards,
+Jenkins Pipeline
+"""
+                    )
+                }
             }
         }
     }
